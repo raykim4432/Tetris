@@ -1,0 +1,132 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package model;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+
+/**
+ * This class (extending Board) is the logical driver for the Reverse Tetris Game.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ *
+ */
+public class ReverseTetrisBoard extends Board {
+
+    //constants
+    /**
+     * Contains the max width possible for a tetris piece.
+     */
+    private static final int MAX_WIDTH_OF_PIECE = 4;
+    
+    /**
+     * The random number generator used to create a random x coordinate in the 
+     * method assignNextPiece.
+     */
+    private static final Random RANDOM_NUM_GENERATOR = new Random();
+    
+    //variables
+    
+    
+    
+    
+    //constructors and methods
+    /**
+     * Calls parent constructor in the class Board.
+     * Constructs a Board using the specified dimensions and random pieces.
+     * 
+     * @param theWidth the grid width to assign to this Tetris board
+     * @param theHeight the grid height to assign to this Tetris board
+     */
+    public ReverseTetrisBoard(final int theWidth, final int theHeight) {
+        super(theWidth, theHeight);
+        
+         
+    }
+    
+    
+    /**
+     * This method gets a random next piece and sets its x coordinate value to a
+     * random int between board coordinate 1 and the board width.
+     */
+    @Override
+    protected void assignNextPiece() {
+        
+        myNextPiece = randomPiece(RANDOM_NUM_GENERATOR.
+                                  nextInt(myWidth - MAX_WIDTH_OF_PIECE), myHeight);
+        
+    }
+    
+    
+    //movement methods
+    
+
+    /**
+     * Checks to see if the left wall or a frozen block is to the left of the current piece.
+     * 
+     * If nothing is in the way of the current piece, the frozen pieces shift right.
+     */
+    @Override
+    public void moveRight() {
+        final int[][] blocks = ((AbstractPiece) myCurrentPiece).getBoardCoordinates();
+        boolean canPass = true;
+
+        // perform bounds checking on each block
+        for (int i = 0; i < blocks.length; i++) {
+            if (blocks[i][0] == 0 || // block is already at the left wall
+                blockAt(blocks[i][0] - 1, blocks[i][1]) != Block.EMPTY) {
+                // block to left is occupied
+                canPass = false;
+                break; // can't move, no need to keep checking
+            }
+        }
+
+        //if the current piece can move left, shift the frozen blocks right
+        if (canPass) {
+            //iterate through each row of frozen blocks, remove the tail element and add it
+            //to the front of the List
+            for (final List<Block> row : getFrozenBlocks()) {
+                final Block tailBlock = ((LinkedList<Block>) row).removeLast();
+                ((LinkedList<Block>) row).addFirst(tailBlock);
+            }
+            setChanged();
+            notifyObservers();
+        }
+    }
+    
+    /**
+     * Attempts to move the current piece to the right.
+     */
+    @Override
+    public void moveLeft() {
+        final int[][] blocks = ((AbstractPiece) myCurrentPiece).getBoardCoordinates();
+        boolean canPass = true;
+
+        // perform bounds checking on each block
+        for (int i = 0; i < blocks.length; i++) {
+            if (blocks[i][0] == myWidth - 1 || // block is already at the right wall
+                blockAt(blocks[i][0] + 1, blocks[i][1]) != Block.EMPTY) {
+                // block to right is occupied
+                canPass = false;
+                break; // can't move, no need to keep checking
+            }
+        }
+
+        if (canPass) {
+            //iterate through each row of frozen blocks, remove the front element and add it
+            //to the tail of the List
+            for (final List<Block> row : getFrozenBlocks()) {
+                final Block frontBlock = ((LinkedList<Block>) row).removeFirst();
+                ((LinkedList<Block>) row).addLast(frontBlock);
+            }
+            setChanged();
+            notifyObservers();
+        }
+    }
+    
+    
+}

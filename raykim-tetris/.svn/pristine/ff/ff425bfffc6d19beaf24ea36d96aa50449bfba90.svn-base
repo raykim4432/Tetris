@@ -1,0 +1,759 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package view;
+
+import java.awt.Container;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
+
+import javafx.application.Application;
+
+import javax.swing.JFrame;
+import javax.swing.Timer;
+
+import media.AdvertVideo;
+import media.BGAudio;
+import model.AbstractPiece;
+import model.Block;
+import model.Board;
+import model.Piece;
+import model.ReverseTetrisBoard;
+import panels.BoardPanel;
+import panels.NextPiecePanel;
+import panels.SpeedScorePanel;
+import file.interaction.FileInteractionHelper;
+import file.interaction.TetrisGameData;
+
+/**
+ * GUI class for Tetris.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ */
+public class TetrisGUI implements Observer {
+
+    //constants
+    /**
+     * Contains the number of blocks the width of this board will contain.
+     */
+    private static final int BOARD_BLOCK_WIDTH = 10;
+    
+    /**
+     * Contains the number of blocks the height of this board will contain.
+     */
+    private static final int BOARD_BLOCK_HEIGHT = 20;
+    
+    /**
+     * Contains the initial game event interval speed.
+     */
+    private static final int INITIAL_EVENT_INTERVAL_SPEED = 1000;
+    
+    /**
+     * Contains the millisecond delay between each advertisement change.
+     */
+    private static final int MILLISEC_DELAY_BETWEEN_ADVERTS = 7000;
+    
+    /**
+     * Each additional increment of 1 to game speed increases game speed by
+     * this number of milliseconds.
+     */
+    private static final int MILLISECOND_SPEED_INCREMENTATION = 75;
+    
+    /**
+     * Index for music played in reverse tetris mode.
+     */
+    private static final int REVERSE_TETRIS_MODE_MUSIC_INDEX = 1;
+    
+    /**
+     * Contains the number the game speed is divided by in order to get the value the
+     * game music speed is increased by (when speed is changed in the JSlider)
+     */
+    private static final int GAME_SPEED_BASE = 10;
+    
+    
+    
+    //variables
+    /**
+     * Contains the args passed in from the main method.
+     */
+    private final String[] myArgs;
+    
+    /**
+     * Boolean, true means game is not paused, false means game is paused.
+     */
+    private boolean myGameIsRunning;
+    
+    /**
+     * Boolean that tracks if replay mode is on.
+     */
+    private boolean myReplayModeOn;
+    
+    /**
+     * Boolean, true means reverse tetris mode is activated.
+     */
+    private boolean myReverseTetrisModeOn;
+    
+    /**
+     * Boolean, set to true when a new game is started, forcing user to watch video
+     * on unpause of new game.
+     */
+    private boolean myPlayVideoOnNewGameUnpause;
+    
+    /**
+     * Variable to hold the number of blocks in the board width.
+     */
+    private int myBoardRowsInBlocks;
+    
+    /**
+     * Variable to hold the number of blocks in the board height.
+     */
+    private int myBoardColumnsInBlocks;
+    
+    /**
+     * Number of cycles that have elapsed since start of timer.
+     * This value is reset if the user starts a new game.
+     */
+    private int myTrackedCycles;
+    
+    /**
+     * The number of cycles that have elapsed since the start of the replay.
+     */
+    private int myReplayCycles;
+    
+    /**
+     * Contains the delay (in milliseconds) for the Timer myGameTimer. This effectively 
+     * is the interval at which events in the game are triggered.
+     */
+    private int myGameSpeed;
+    
+
+    /**
+     * Contains the amount of milliseconds that have elapsed since the last advertisement
+     * change.
+     */
+    private int mySecondsSinceLastAdvertChange;
+    
+    /**
+     * Contains speed of music based off speed of game.
+     */
+    private double myMusicSpeed;
+    
+    /**
+     * The timer which cues the ActionOnBoard ActionListener to move events in the
+     * Board class.
+     */
+    private Timer myGameTimer;
+    
+    /**
+     * The JFrame for this game.
+     */
+    private final TetrisFrame myTetrisFrame;
+    
+    /**
+     * Contains the JMenubar for the Tetris JFrame.
+     */
+    private TetrisMenuBar myTetrisMenuBar;
+    
+    /**
+     * The GUI display of this tetris game.
+     */
+    private BoardPanel myTetrisBoard;
+    
+    /**
+     * Panel which displays the score scheme and also the speed selector for this game.
+     */
+    private SpeedScorePanel mySpeedScorePanel;
+    
+    /**
+     * Panel which displays the next piece.
+     */
+    private NextPiecePanel myNextPieceDisplayPanel;
+    
+    /**
+     * This variable is a reference to the logical class that drives this game.
+     */
+    private Board myBoard;
+    
+    /**
+     * The most recent current piece pulled from myBoard.
+     */
+    private Piece myCurrentPiece;
+    
+    /**
+     * The next piece pulled from myBoard.
+     */
+    private Piece myNextPiece;
+    
+    /**
+     * Object that generates background music for this game. 
+     */
+    private BGAudio myBGAudio;
+    
+    /**
+     * The current frozen blocks (in the format originally derived from the Board class).
+     */
+    private List<List<Block>> myFrozenBlocksList;
+    
+    /**
+     * Holds a List of currentBlock coordinates for replay mode.
+     */
+    private List<int[][]> myCurrentBlockReplayList;
+    
+    /**
+     * Holds a List of frozen block coordinates for replay mode.
+     */
+    private List<List<int[]>> myFrozenBlockReplayList;
+    
+    /**
+     * Holds a List of next block coordinates for replay mode.
+     */
+    private List<int[][]> myNextBlockReplayList;
+    
+    //constructor and methods
+    /**
+     * Instantiates a TetrisGUI object.
+     * @param theArgs the main method's args
+     */
+    public TetrisGUI(final String[] theArgs) {
+        myArgs = theArgs.clone();
+        
+        //initialize board
+        myBoard = new Board(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT);
+        
+        //create tetris frame, which includes the visual game board
+        myTetrisFrame = new TetrisFrame(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT);
+        myTetrisFrame.setLocationRelativeTo(null);
+        myTetrisFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
+        //initializeVariables
+        initializeVariables();
+        
+        
+        
+      
+    }
+    
+    /**
+     * This method initializes variables.
+     */
+    private void initializeVariables() {
+        //create tetris menu bar
+        myTetrisMenuBar = new TetrisMenuBar(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT);
+        myTetrisFrame.setJMenuBar(myTetrisMenuBar);
+        
+        //initialize the game event interval speed
+//        myEventIntervalSpeed = INITIAL_EVENT_INTERVAL_SPEED;
+        
+        //start the timer for the game
+        myGameTimer = new Timer(INITIAL_EVENT_INTERVAL_SPEED, new ActionOnBoard());
+        
+        //initialize replay Lists that hold history of block positions for replay mode
+        myCurrentBlockReplayList = new LinkedList<>();
+        myFrozenBlockReplayList = new LinkedList<>();
+        myNextBlockReplayList = new LinkedList<>();
+        
+        //initialize background music object
+        myBGAudio = new BGAudio();
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                myBGAudio.playTrack(0);
+//                System.out.println(Thread.currentThread().getName());
+//            }
+//        }).start();
+        
+        
+    }
+    
+    /**
+     * This method creates visual elements of the TetrisGUI and starts the game.
+     */
+    public void start() {
+        //retrieve references to GUI display panels
+        retrieveGUIDisplayReferences();
+        
+        //set observers
+        setObserversAndListeners();
+        
+        //start the game
+        myMusicSpeed = 1;
+        myBoardRowsInBlocks = BOARD_BLOCK_WIDTH;
+        myBoardColumnsInBlocks = BOARD_BLOCK_HEIGHT;
+        startNewGame(0);
+        
+        //set show advert video to true when new game is started
+        myPlayVideoOnNewGameUnpause = true;
+        
+        //set focus on tetris board
+        myTetrisBoard.requestFocus(true);
+        
+        //start game timer
+        myGameTimer.start();
+        
+        
+    } //end of start
+    
+    /**
+     * This method navigates the main JFrame hierarchy for references to GUI display panels.
+     */
+    private void retrieveGUIDisplayReferences() {
+        //set key listener on JPanel in myTetrisFrame CENTER pane
+        final Container jRootPane = (Container) myTetrisFrame.getComponent(0);
+        final Container jLayeredPane = (Container) jRootPane.getComponent(1);
+        final Container jFrame = (Container) jLayeredPane.getComponent(0);
+        
+        
+        //retrieve reference for GUI tetris board
+        final Container tetrisBoardContainer = (Container) jFrame.
+                                        getComponent(myTetrisFrame.getCenterPanelIndex());
+        myTetrisBoard = (BoardPanel) tetrisBoardContainer.getComponent(0);
+        
+        //retrieve reference for speed score panel
+        final Container rightPanel = (Container) jFrame.
+                                        getComponent(myTetrisFrame.getRightPanelIndex());
+        
+        mySpeedScorePanel = (SpeedScorePanel) rightPanel.
+                                        getComponent(myTetrisFrame.getSpeedScorePanelIndex());
+        
+        //retrieve reference for next piece display panel
+        myNextPieceDisplayPanel = (NextPiecePanel) rightPanel.
+                                        getComponent(myTetrisFrame.getNextPiecePanelIndex());
+        
+        
+        
+    }
+    
+    /**
+     * This method sets listeners for this class.
+     * It also sets observers between the GUI and the back end and vice versa.
+     */
+    private void setObserversAndListeners() {
+        /* listeners */
+        // View to Model
+        myTetrisBoard.addPropertyChangeListener(new TetrisBoardPropertyChangeListener());
+        myTetrisMenuBar.addPropertyChangeListener(new MenuBarPropertyChangeListener());
+        myTetrisMenuBar.addPropertyChangeListener(new BoardDimenGameSpeedChangeListener());
+        mySpeedScorePanel.addPropertyChangeListener(new BoardDimenGameSpeedChangeListener());
+        
+        //propertyChangeListeners to pause game
+        myTetrisBoard.addPropertyChangeListener(new PausePropertyChangeListener()); 
+        myTetrisMenuBar.addPropertyChangeListener(new PausePropertyChangeListener()); 
+        mySpeedScorePanel.addPropertyChangeListener(new PausePropertyChangeListener()); 
+        
+        //View to View
+        myTetrisMenuBar.addPropertyChangeListener(myTetrisBoard); //to toggle grid
+ 
+        /* Observers */
+        // Model to View Observer relation 
+        myBoard.addObserver(this);
+        
+        // View to Model Observer relation
+   
+        
+    }
+    
+    /**
+     * This method starts a new game.
+     * 
+     * @param theLevel int that determines speed and bg music of level
+     */
+    private void startNewGame(final int theLevel) {
+        
+        //reset timer clock
+        myTrackedCycles = 0;
+        
+        //reset visuals
+        myTetrisBoard.gameOverTextVisible(false);
+        
+        //create new board
+        myBoard.newGame(myBoardRowsInBlocks, myBoardColumnsInBlocks, null);
+        
+        //resize tetris GUI board
+        myTetrisBoard.setWidthHeightInBlocks(myBoardRowsInBlocks, 
+                                             myBoardColumnsInBlocks);
+        myTetrisBoard.repaint();
+        
+        
+        //clear collections that hold replay data
+        if (myReplayCycles > 0) {
+            myCurrentBlockReplayList.clear();
+            myFrozenBlockReplayList.clear();
+            myNextBlockReplayList.clear();
+        }
+        
+        //set music for level
+        myBGAudio.playTrack(theLevel);
+        myBGAudio.setMusicSpeed(myMusicSpeed);
+        myBGAudio.pauseTrack();
+        
+    }
+    
+    /**
+     * This method, when called, toggles pause.
+     */
+    private void pauseToggle() {
+        //play video if new game has been started and new game is unpaused
+        if (myPlayVideoOnNewGameUnpause) {
+            //video application must run in new thread separate from that of the event
+            //dispatch thread that runs this GUI. Otherwise, closing the video application
+            //keeps the control in the JavaFX App Thread, which doesn't close because 
+            //Platform is set to setImplicitExit(false). However, JavaFX App Thread must
+            //stay open for some unexplained reason so that the JFXPanel that plays music
+            //does not lose references to its variables and throws an IllegalStateException
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Application.launch(AdvertVideo.class, myArgs);
+                }
+            }).start();
+            myPlayVideoOnNewGameUnpause = false;
+            
+        } else if (myGameIsRunning) { //pause game
+//            myGameTimer.stop();
+            myTetrisBoard.setJLabelVisible(true);
+            
+            //pause audio
+            myBGAudio.pauseTrack();
+            
+            myGameIsRunning = false;
+        } else { //unpause game
+//            myGameTimer.start();
+            myTetrisBoard.setJLabelVisible(false);
+            
+            //resume audio
+            myBGAudio.resumeTrack();
+            
+            myGameIsRunning = true;
+        }
+    }
+    
+    /**
+     * This method switches the GUI between regular and reverse tetris mode.
+     */
+    private void toggleReverseTetris() {
+        if (myReverseTetrisModeOn) {
+            //turning off reverse tetris mode
+            myBoard = new Board(myBoardRowsInBlocks, myBoardColumnsInBlocks);
+            myReverseTetrisModeOn = false;
+            myTetrisBoard.reverseTetrisModeOn(false);
+            startNewGame(0);
+        } else {
+            //turning on reverse tetris mode
+            myBoard = new ReverseTetrisBoard(myBoardRowsInBlocks, myBoardColumnsInBlocks);
+            myReverseTetrisModeOn = true;
+            myTetrisBoard.reverseTetrisModeOn(true);
+            startNewGame(REVERSE_TETRIS_MODE_MUSIC_INDEX);
+        }
+        //reattach observer to new board (which has a different memory location than
+        //the last board
+        myBoard.addObserver(this);
+
+    }
+    
+    //Observer
+    /**
+     * 
+     * This method observes logical changes in the Board class and uses BoardPanel's
+     * updateGraphicalBlocks() methods to draw the logical 
+     * blocks in TetrisGUI's BoardPanel object. 
+     * 
+     * This method also gets the next piece.
+     * 
+     * @param theObservable that has triggered this event
+     * @param theObject passed to this method with the observer
+     */
+    @Override
+    public void update(final Observable theObservable, final Object theObject) {
+
+        /* current piece */
+        //get location of current piece's blocks
+        myCurrentPiece = ((Board) theObservable).getCurrentPiece();
+        final int[][] currentBlockCoordinates = ((AbstractPiece) myCurrentPiece).
+                                        getBoardCoordinates();
+        
+        /* frozen blocks */
+        //get location of frozen blocks and translate List<List<Block>> into an List<int[]>
+        myFrozenBlocksList = ((Board) theObservable).getFrozenBlocks();
+        final int frozenBlockWidth = ((Board) theObservable).getWidth();
+        final List<int[]> returnFrozenBlockList = new LinkedList<>();
+        // for each row in frozenBlocksList
+        for (int r = 0; r < myFrozenBlocksList.size(); r++) {
+            final List<Block> row = myFrozenBlocksList.get(r);
+            // for each column in frozenBlockList
+            for (int c = 0; c < frozenBlockWidth; c++) {
+                //if Block enum is not Block.empty, store coordinates in returnFrozenBlockList
+                if (row.get(c) != Block.EMPTY) {
+                    final int[] frozenCoordinates = {c, r};
+                    returnFrozenBlockList.add(frozenCoordinates);
+                }
+            }
+        }
+        
+        //send current piece and frozen block coordinates to myBoardPanel
+        myTetrisBoard.updateGraphicalBlocks(currentBlockCoordinates, 
+                                           returnFrozenBlockList);
+        
+        /* next piece */
+        myNextPiece = ((Board) theObservable).getNextPiece();
+        final int[][] nextBlockCoordinates = ((AbstractPiece) myNextPiece).getRotation();
+        
+        
+        //send next block coordinates to 
+        myNextPieceDisplayPanel.refreshNextPiecePreview(nextBlockCoordinates);
+        
+        //save currentBlockCoordinates, returnFrozenBlockList and nextBlockCoordinates for
+        //for instant replay
+        myCurrentBlockReplayList.add(currentBlockCoordinates);
+        myFrozenBlockReplayList.add(returnFrozenBlockList);
+        myNextBlockReplayList.add(nextBlockCoordinates);
+    }
+    
+    //inner classes
+    //timer listeners
+    /**
+     * Inner class that listens for actions from the timer.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    private class ActionOnBoard implements ActionListener {
+
+        /**
+         * This action listener's actionPerformed causes events in the Board class.
+         * 
+         * @param theEvent the timer which spawned this event
+         */
+        @Override
+        public void actionPerformed(final ActionEvent theEvent) {
+
+            //select mode (replay/game over/game active)
+            if (myReplayModeOn) { //replay mode
+                //continue replay mode only if myReplayCycles is less than cycles that have
+                //elapsed during the game (recorded in myTrackedCycles)
+                if (myReplayCycles < myTrackedCycles) {
+                  //draw active and frozen blocks for replay
+                    myTetrisBoard.updateGraphicalBlocks(myCurrentBlockReplayList.
+                                                        get(myReplayCycles), 
+                                                        myFrozenBlockReplayList.
+                                                        get(myReplayCycles));
+                    //draw next piece for replay
+                    myNextPieceDisplayPanel.refreshNextPiecePreview(myNextBlockReplayList.
+                                                                    get(myReplayCycles));
+                    myReplayCycles++;
+                } else {
+                    //pause game once replay is over
+                    pauseToggle();
+                    myReplayModeOn = false;
+                    myTetrisBoard.replayTextVisible(false);
+                }
+                
+            } else if (myBoard.isGameOver()) { //if game is over
+                //display game over JLabel in BoardPanel object
+                myTetrisBoard.gameOverTextVisible(true);
+                //disable left, right, drop, etc.
+                myGameIsRunning = false;
+                //stop the clock
+//                myGameTimer.stop();
+            } else if (myGameIsRunning) {
+              //progress the game forward
+                myBoard.step();
+              //increment seconds elapsed since first start of timer
+                myTrackedCycles++;
+            }
+
+            //measure time elapsed since last advert change
+            mySecondsSinceLastAdvertChange += myGameSpeed;
+            
+            //change board advertisement
+            if (mySecondsSinceLastAdvertChange > MILLISEC_DELAY_BETWEEN_ADVERTS) {
+                myTetrisFrame.cycleAdvertImage();
+                
+                mySecondsSinceLastAdvertChange = 0;
+            }
+        }
+        
+    } //end of ActionOnBoard
+    
+    
+    //property change listeners
+    /**
+     * PropertyChangeListener for tetris board.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    public class TetrisBoardPropertyChangeListener implements PropertyChangeListener {
+        /**
+         * This method listens for fired property changes in the BoardPanel class. 
+         * It then determines what key( left,  right, drop, etc.) was pressed and calls
+         * the appropriate Board class method.
+         * 
+         * @param theEvent propertyChange event that was fired, which contains the action of
+         * the key that was pushed
+         */
+        @Override
+        public void propertyChange(final PropertyChangeEvent theEvent) {
+            final String propertyName = theEvent.getPropertyName();
+            
+            if (myGameIsRunning) {
+                if ("left".equals(propertyName)) {
+                    myBoard.moveLeft();
+                } else if ("right".equals(propertyName)) {
+                    myBoard.moveRight();
+                } else if ("rotate".equals(propertyName)) {
+                    myBoard.rotateCW();
+                } else if ("drop".equals(propertyName)) {
+                    myBoard.hardDrop();
+                } else if ("down".equals(propertyName)) {
+                    myBoard.moveDown();
+                } 
+                
+                myTrackedCycles++;
+            }
+            
+            
+        } //end of propertyChange
+        
+    } //end of TetrisBoardPropertyChangeListener
+    
+    /**
+     * PropertyChangeListener to pause the game.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    public class PausePropertyChangeListener implements PropertyChangeListener {
+        
+        /**
+         * "pause" toggles the game while "pauseOnly" only pauses the game.
+         * 
+         * @param theEvent propertyChange event that was fired
+         */
+        @Override
+        public void propertyChange(final PropertyChangeEvent theEvent) {
+            final String propertyName = theEvent.getPropertyName();
+                      
+            if ("pause".equals(propertyName)) {
+                //toggle pause on timer
+                pauseToggle();
+            } else if ("pauseOnly".equals(propertyName)) {
+//                myGameTimer.stop();
+                myTetrisBoard.setJLabelVisible(true);
+                myBGAudio.pauseTrack();
+                myGameIsRunning = false;
+            }
+            
+        } //end of propertyChange
+    } //end of PausePropertyChangeListener
+        
+    /**
+     * PropertyChangeListener to adjust the dimensions of the board in the next game.
+     * It also adjusts game speed.
+     * 
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    public class BoardDimenGameSpeedChangeListener implements PropertyChangeListener {
+        
+        /**
+         * This method saves the row and column lengths in blocks recorded by the JSlider.
+         * These values are used in creating a board of the specified dimensions in the
+         * next game.
+         * 
+         * @param theEvent propertyChange event that was fired
+         */
+        @Override
+        public void propertyChange(final PropertyChangeEvent theEvent) {
+            final String propertyName = theEvent.getPropertyName();
+                      
+            if ("block rows".equals(propertyName)) {
+                myBoardRowsInBlocks = (int) theEvent.getNewValue();
+            } else if ("block columns".equals(propertyName)) {
+                myBoardColumnsInBlocks = (int) theEvent.getNewValue();
+            } else if ("game speed".equals(propertyName)) {
+                //divide value sent by slider by max game speed. Then add this value to 1
+                //for new game speed. max game speed is 2x
+                myGameSpeed = INITIAL_EVENT_INTERVAL_SPEED - ((int) theEvent.getNewValue() 
+                                                * MILLISECOND_SPEED_INCREMENTATION);
+                myGameTimer.setDelay(myGameSpeed);
+                
+                //set music speed
+                myMusicSpeed = 1 + ((int) theEvent.getNewValue() / (double) GAME_SPEED_BASE);
+                myBGAudio.setMusicSpeed(myMusicSpeed);
+            }
+            
+        } //end of propertyChange
+    } //end of BoardBlockDimenPropertyChangeListener
+    
+    /**
+     * PropertyChangeListener for Menu Bar options.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    public class MenuBarPropertyChangeListener implements PropertyChangeListener {
+        
+        /**
+         * This method differentiates commands from the menu bar and executes the
+         * appropriate commands for the option.
+         * 
+         * @param theEvent propertyChange event that was fired
+         */
+        @Override
+        public void propertyChange(final PropertyChangeEvent theEvent) {
+                     
+            switch (theEvent.getPropertyName()) {
+                case "undo":
+                    
+                    break;
+                    
+                case "new game":
+                    startNewGame(0);
+                    break;
+                    
+                case "save":
+                    FileInteractionHelper.saveGameData(new TetrisGameData(myCurrentPiece,
+                                                                          myNextPiece,
+                                                                          myFrozenBlocksList));
+                    break;
+                    
+                case "load":
+                    final TetrisGameData gameData = FileInteractionHelper.loadGameData();
+                    myBoard.loadGame(gameData.getCurrentPiece(), gameData.getNextPiece(),
+                                     gameData.getFrozenBlocks());
+                    pauseToggle();
+                    break;
+                case "reverse tetris mode":
+                    toggleReverseTetris();
+                    break;
+                    
+                case "mute":
+                    
+                    break;
+                
+                case "view replay":
+                    myReplayModeOn = true;
+                    myGameIsRunning = false;
+                    myReplayCycles = 0;
+                    myTetrisBoard.replayTextVisible(true);
+                    pauseToggle();
+                    break;
+                  
+                default: //about
+                    
+                    break;
+            }
+            
+        } //end of propertyChange
+    } //end of BoardBlockDimenPropertyChangeListener
+    
+}

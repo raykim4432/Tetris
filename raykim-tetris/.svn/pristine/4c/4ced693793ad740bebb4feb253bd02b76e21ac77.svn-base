@@ -1,0 +1,89 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+
+package file.interaction;
+
+import java.io.Serializable;
+import java.util.List;
+
+import model.Block;
+import model.Piece;
+
+/**
+ * The class stores board block information and is serializable.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ *
+ */
+public final class TetrisGameData implements Serializable {
+    
+    
+    //constants
+    /**
+     * Serial UID.
+     */
+    private static final long serialVersionUID = -4007394649888186246L;
+
+    //variables
+    /**
+     * The current piece that will be serialized.
+     */
+    private final Piece myCurrentPiece;
+    
+    /**
+     * The next piece that will be serialized.
+     */
+    private final Piece myNextPiece;
+    
+    /**
+     * The current frozen blocks (in the format originally derived from the Board class)
+     * that will be serialized.
+     */
+    private final List<List<Block>> myFrozenBlocksList;
+    
+    //constructor and methods
+    /**
+     * Constructor that saves essential game state data.
+     * 
+     * @param theCurrentPiece current piece data
+     * @param theNextPiece next piece data
+     * @param theFrozenBlocksList frozen blocks list data
+     */
+    public TetrisGameData(final Piece theCurrentPiece, 
+                          final Piece theNextPiece,
+                          final List<List<Block>> theFrozenBlocksList) {
+        myCurrentPiece = theCurrentPiece;
+        myNextPiece = theNextPiece;
+        myFrozenBlocksList = theFrozenBlocksList;
+        
+    }
+    
+    //getters
+    /**
+     * Method returns saved current piece data.
+     * @return Piece current piece data
+     */
+    public Piece getCurrentPiece() {
+        return myCurrentPiece;
+    }
+    
+    /**
+     * Method returns saved next piece data.
+     * @return Piece current piece data
+     */
+    public Piece getNextPiece() {
+        return myNextPiece;
+    }
+    
+    /**
+     * Method returns saved frozen block data.
+     * @return Piece current piece data
+     */
+    public List<List<Block>> getFrozenBlocks() {
+        return myFrozenBlocksList;
+    }
+    
+}

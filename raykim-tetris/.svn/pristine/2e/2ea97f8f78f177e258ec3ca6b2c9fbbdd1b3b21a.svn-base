@@ -1,0 +1,329 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package view;
+
+import java.awt.Container;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Observable;
+import java.util.Observer;
+
+import javax.swing.JFrame;
+import javax.swing.Timer;
+
+import model.AbstractPiece;
+import model.Block;
+import model.Board;
+import panels.BoardPanel;
+import panels.NextPiecePanel;
+
+/**
+ * GUI class for Tetris.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ */
+public class TetrisGUI implements PropertyChangeListener, Observer {
+
+    //constants
+    /**
+     * Contains the number of blocks the width of this board will contain.
+     */
+    private static final int BOARD_BLOCK_WIDTH = 10;
+    
+    /**
+     * Contains the number of blocks the height of this board will contain.
+     */
+    private static final int BOARD_BLOCK_HEIGHT = 20;
+    
+    /**
+     * Contains the initial game event interval speed.
+     */
+    private static final int INITIAL_EVENT_INTERVAL_SPEED = 1000;
+    
+    /**
+     * Contains the second delay between each advertisement change.
+     */
+    private static final int SEC_DELAY_BETWEEN_ADVERTS = 10;
+    
+    //variables
+    /**
+     * Boolean, true means game is not paused, false means game is paused.
+     */
+    private boolean myGameIsRunning;
+    
+    /**
+     * Contains the delay (in milliseconds) for the Timer myGameTimer. This effectively 
+     * is the interval at which events in the game are triggered.
+     */
+//    private int myEventIntervalSpeed;
+    
+    /**
+     * Number of seconds that have elapsed since first start of timer.
+     */
+    private int myTrackedSeconds;
+    
+    /**
+     * The timer which cues the ActionOnBoard ActionListener to move events in the
+     * Board class.
+     */
+    private final Timer myGameTimer;
+    
+    /**
+     * The JFrame for this game.
+     */
+    private final TetrisFrame myTetrisFrame;
+    
+    /**
+     * The GUI display of this tetris game.
+     */
+    private BoardPanel myTetrisBoard;
+    
+    /**
+     * Panel which displays the next piece.
+     */
+    private NextPiecePanel myNextPieceDisplayPanel;
+    
+    /**
+     * This variable is a reference to the logical class that drives this game.
+     */
+    private final Board myBoard;
+    
+    //constructor and methods
+    /**
+     * Instantiates a TetrisGUI object.
+     * 
+     */
+    public TetrisGUI() {
+        //initialize board
+        myBoard = new Board(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT);
+        
+        //create tetris frame, which includes the visual game board
+        myTetrisFrame = new TetrisFrame(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT);
+        myTetrisFrame.setLocationRelativeTo(null);
+        myTetrisFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
+        //initialize the game event interval speed
+//        myEventIntervalSpeed = INITIAL_EVENT_INTERVAL_SPEED;
+        
+        //start the timer for the game
+        myGameTimer = new Timer(INITIAL_EVENT_INTERVAL_SPEED, new ActionOnBoard());
+        
+      
+    }
+    
+    /**
+     * This method creates visual elements of the TetrisGUI and starts the game.
+     */
+    public void start() {
+        //retrieve references to GUI display panels
+        retrieveGUIDisplayReferences();
+        
+        //set observers
+        setObserversAndListeners();
+        
+        //start the game
+        myBoard.newGame(BOARD_BLOCK_WIDTH, BOARD_BLOCK_HEIGHT, null);
+        
+        
+        //set focus on tetris board
+        myTetrisBoard.requestFocus(true);
+        
+    } //end of start
+    
+    /**
+     * This method navigates the main JFrame hierarchy for references to GUI display panels.
+     */
+    private void retrieveGUIDisplayReferences() {
+        //set key listener on JPanel in myTetrisFrame CENTER pane
+        final Container jRootPane = (Container) myTetrisFrame.getComponent(0);
+        final Container jLayeredPane = (Container) jRootPane.getComponent(1);
+        final Container jFrame = (Container) jLayeredPane.getComponent(0);
+        
+        
+        //retrieve reference for GUI tetris board
+        final Container tetrisBoardContainer = (Container) jFrame.
+                                        getComponent(myTetrisFrame.getCenterPanelIndex());
+        myTetrisBoard = (BoardPanel) tetrisBoardContainer.getComponent(0);
+        
+        //retrieve reference for next piece display panel
+        final Container rightPanel = (Container) jFrame.
+                                        getComponent(myTetrisFrame.getRightPanelIndex());
+        myNextPieceDisplayPanel = (NextPiecePanel) rightPanel.
+                                        getComponent(myTetrisFrame.getNextPiecePanelIndex());
+    }
+    
+    /**
+     * This method sets listeners for this class.
+     * It also sets observers between the GUI and the back end and vice versa.
+     */
+    private void setObserversAndListeners() {
+        /* listeners */
+        //add property change listener
+        myTetrisBoard.addPropertyChangeListener(this);
+ 
+        
+        /* Model to View Observer relation */
+        myBoard.addObserver(this);
+        
+        /* View to Model Observer relation */
+        
+        
+        
+    }
+    
+    //property change listeners
+    /**
+     * This method listens for fired property changes in the BoardPanel class. 
+     * It then determines what key( left,  right, drop, etc.) was pressed and calls
+     * the appropriate Board class method.
+     * 
+     * @param theEvent propertyChange event that was fired, which contains the action of
+     * the key that was pushed
+     */
+    @Override
+    public void propertyChange(final PropertyChangeEvent theEvent) {
+        final String propertyName = theEvent.getPropertyName();
+        
+        if (myGameIsRunning) {
+            if ("left".equals(propertyName)) {
+                myBoard.moveLeft();
+            } else if ("right".equals(propertyName)) {
+                myBoard.moveRight();
+            } else if ("rotate".equals(propertyName)) {
+                myBoard.rotateCW();
+            } else if ("drop".equals(propertyName)) {
+                myBoard.hardDrop();
+            } else if ("down".equals(propertyName)) {
+                myBoard.moveDown();
+            } 
+        }
+        
+        if ("pause".equals(propertyName)) {
+            //toggle pause on timer
+            if (myGameTimer.isRunning()) {
+                myGameTimer.stop();
+                myTetrisBoard.setJLabelVisible(true);
+                myGameIsRunning = false;
+            } else {
+                myGameTimer.start();
+                myTetrisBoard.setJLabelVisible(false);
+                myGameIsRunning = true;
+            }
+        }
+        
+    } //end of propertyChange
+    
+    //Observer
+    /**
+     * 
+     * This method observes logical changes in the Board class and uses BoardPanel's
+     * updateGraphicalBlocks() methods to draw the logical 
+     * blocks in TetrisGUI's BoardPanel object. 
+     * 
+     * This method also gets the next piece.
+     * 
+     * @param theObservable that has triggered this event
+     * @param theObject passed to this method with the observer
+     */
+    @Override
+    public void update(final Observable theObservable, final Object theObject) {
+
+        /* current piece */
+        //get location of current piece's blocks
+        final int[][] currentBlockCoordinates = ((AbstractPiece) ((Board) theObservable).
+                                        getCurrentPiece()).getBoardCoordinates();
+        
+        /* frozen blocks */
+        //get location of frozen blocks and translate List<Block[]> into an int[][]
+        final List<Block[]> frozenBlocksList = ((Board) theObservable).getFrozenBlocks();
+        final int frozenBlockWidth = ((Board) theObservable).getWidth();
+        final List<int[]> returnFrozenBlockList = new LinkedList<>();
+        // for each row in frozenBlocksList
+        for (int r = 0; r < frozenBlocksList.size(); r++) {
+            final Block[] row = frozenBlocksList.get(r);
+            // for each column in frozenBlockList
+            for (int c = 0; c < frozenBlockWidth; c++) {
+                //if Block enum is not Block.empty, store coordinates in returnFrozenBlockList
+                if (row[c] != Block.EMPTY) {
+                    final int[] frozenCoordinates = {c, r};
+                    returnFrozenBlockList.add(frozenCoordinates);
+                }
+            }
+        }
+        
+        //send current piece and frozen block coordinates to myBoardPanel
+        myTetrisBoard.updateGraphicalBlocks(currentBlockCoordinates, 
+                                           returnFrozenBlockList);
+        
+        /* next piece */
+        final int[][] nextBlockCoordinates = ((AbstractPiece) ((Board) theObservable).
+                                        getNextPiece()).getBoardCoordinates();
+        
+        final int boardWidthHalf = (((Board) theObservable).getWidth() / 2) - 2;
+        final int boardHeight = ((Board) theObservable).getHeight();
+        
+        //the next piece's block coordinates are set up at top and center of the logical board
+        //translate these coordinates so they are bottom left aligned by subtracting the Board
+        //height and width/2
+        for (int i = 0; i < nextBlockCoordinates.length; i++) {
+            nextBlockCoordinates[i][0] = nextBlockCoordinates[i][0] - boardWidthHalf;
+            nextBlockCoordinates[i][1] = nextBlockCoordinates[i][1] - boardHeight;
+        }
+        
+        //send next block coordinates to 
+        myNextPieceDisplayPanel.refreshNextPiecePreview(nextBlockCoordinates);
+    }
+    
+    //inner classes
+    //timer listeners
+    /**
+     * Inner class that listens for actions from the timer.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     */
+    private class ActionOnBoard implements ActionListener {
+
+        /**
+         * This action listener's actionPerformed causes events in the Board class.
+         * 
+         * @param theEvent the timer which spawned this event
+         */
+        @Override
+        public void actionPerformed(final ActionEvent theEvent) {
+
+            //increment seconds elapsed since first start of timer
+            myTrackedSeconds++;
+            
+            //check if game is over
+            if (myBoard.isGameOver()) { //if game is over
+                //display game over JLabel in BoardPanel object
+                myTetrisBoard.gameOverVisible(true);
+                //disable left, right, drop, etc.
+                myGameIsRunning = false;
+                //stop the clock
+                myGameTimer.stop();
+            } else {
+                //progress the game forward
+                myBoard.step();
+            }
+
+            //change board advertisement
+            if (myTrackedSeconds % SEC_DELAY_BETWEEN_ADVERTS == 0) {
+                myTetrisFrame.cycleAdvertImage();
+            }
+        }
+        
+    } //end of ActionOnBoard
+    
+    
+    
+    
+}

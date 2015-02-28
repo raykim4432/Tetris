@@ -1,0 +1,386 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package view;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.swing.AbstractButton;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComponent;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JSlider;
+import javax.swing.KeyStroke;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
+
+
+/**
+ * The class creates a JMenuBar for the Tetris JFrame.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ *
+ */
+@SuppressWarnings("serial")
+public class TetrisMenuBar extends JMenuBar {
+    
+    //constants
+    /**
+     * JSlider min number of blocks per row/column.
+     */
+    public static final int BLOCK_ROW_COL_MIN = 5;
+    
+    /**
+     * JSlider max number of blocks per row/column.
+     */
+    public static final int BLOCK_ROW_COL_MAX = 20;
+    
+    /**
+     * JSlider major tick intervals.
+     */
+    public static final int MAJOR_TICK_INTERVALS = 5;
+    
+    /**
+     * JSlider minor tick intervals.
+     */
+    public static final int MINOR_TICK_INTERVALS = 1;
+    
+    /**
+     * Contains index of accelerator in JMENU_STRINGS array.
+     */
+    public static final int INDEX_OF_ACCEL = 3;
+    
+    /**
+     * Variable used to represent separators in JMENU_STRINGS array.
+     */
+    public static final String SEPARATOR = "|";
+    
+    /**
+     * Contains the constant 0 in String form. This constant is mainly used to set the
+     * mnemonic for menu and menuitems to the letter in index 0.
+     */
+    public static final String ZERO = "0";
+    
+    /**
+     * Constant String for the number 6. Used in setting mnemonics in JMENU_STRINGS.
+     */
+    public static final String SIX = "6";
+    
+    /**
+     * Constant used to indicate JMenu in JMENU_STRINGS.
+     * Underlying value is asterisk(for fast computation)
+     */
+    public static final String JMENU = "*";
+    
+    /**
+     * Constant used to indicate JMenu in JMENU_STRINGS.
+     * Underlying value is hash(for fast computation)
+     */
+    public static final String J_CHECKBOX_MENUITEM = "#";
+    
+    /**
+     * Constant containing string "Block Rows".
+     */
+    public static final String BLOCK_ROWS = "Block Rows";
+    
+    /**
+     * Constant containing string "Block Columns".
+     */
+    public static final String BLOCK_COLUMNS = "Block Columns";
+    
+    
+    /**
+     * Contains names for menus, submenus and options in the JMenuBar.
+     * 
+     * String[x][0][x] = Menu
+     * String[x][0][1] is always null. It is always assumed to be a JMenu.
+     * 
+     * String[x][1, 2, 3...][x] = Submenu or option
+     * 
+     * String[x][x][{"Menu Name", buttonType, mnemonicPosition, accelerator}]
+     * 
+     * buttonType: null = standard JMenuItem; * = JMenu; # = JCheckBoxMenuItem
+     * 
+     * mnemonicPosition: xth letter is used as mnemonic, where x =  1, 2, 3, 4, 5, ZERO = 0
+     * 
+     * accelerator: null = no accelerator
+     * 
+     */
+    public static final String[][][] JMENU_STRINGS = {
+        {{"File", null, ZERO, null}, {"New Game", null, ZERO, null},
+            {"Save", null, ZERO, null}, {"Load", null, ZERO, null}}, 
+        
+        {{"Edit", null, ZERO, null}, {"Undo", null, ZERO, "control Z"}}, 
+        
+        {{"Options", null, ZERO, null}, 
+            {"Grid", J_CHECKBOX_MENUITEM, ZERO, null}, {"Mute", null, ZERO, null}}, 
+        
+        {{"Game", null, ZERO, null}, {"View Replay", null, ZERO, null}, {SEPARATOR},
+            {BLOCK_ROWS, JMENU, SIX, null}, {BLOCK_COLUMNS, JMENU, SIX, null}, 
+            {SEPARATOR}, {"Reverse Tetris Mode", J_CHECKBOX_MENUITEM, ZERO, null}}, 
+        
+        {{"Help", null, ZERO, null}, 
+            {"About...", null, ZERO, null}}};
+    
+    
+    //variables
+    /**
+     * Map that contains all JMenu and JMenuItem objects.
+     */
+    private final Map<String, JComponent> myMenuMap;
+    
+    
+    //constructor and methods
+    /**
+     * Constructor creates an instance of this class.
+     * 
+     * @param theBoardWidthInBlocks int default starting game board width in blocks
+     * @param theBoardHeightInBlocks int default starting game board height in blocks
+     */
+    public TetrisMenuBar(final int theBoardWidthInBlocks, 
+                         final int theBoardHeightInBlocks) {
+        super();
+        
+        
+        myMenuMap = new HashMap<>();
+        
+        //create menu
+        createMenu();
+        
+        //create JSliders for picking blocks per row and column
+        createBlockRowColumnJSlider(theBoardWidthInBlocks, theBoardHeightInBlocks);
+    }
+    
+    
+    /**
+     * This method creates the menus and drop downs for this JMenuBar.
+     */
+    private void createMenu() {
+        
+        //create and add JMenus and JMenuItems. The first String values in the 2nd dimensional
+        //array of JMENU_STRINGS are JMenus. The second and following successive Strings
+        //are drop down items.
+        //SEPARATOR signifies a separator.
+        for (int i = 0; i < JMENU_STRINGS.length; i++) {
+            //create new JMenu
+            final JMenu tempJMenu = new JMenu(JMENU_STRINGS[i][0][0]);
+            
+            //add new JMenu to Map myMenuMap
+            myMenuMap.put(JMENU_STRINGS[i][0][0], tempJMenu);
+            
+            //adding drop downs (to menuList and then the actual GUI menus)
+            for (int j = 1; j < JMENU_STRINGS[i].length; j++) {
+                
+                if (SEPARATOR.equals(JMENU_STRINGS[i][j][0])) { 
+                    //create separator in current JMenu
+                    tempJMenu.addSeparator();
+                } else {
+                    final AbstractButton tempJMenuItem;
+                    
+                    //JMENU_STRINGS[i][j][1] is JMENU, it is a JMenu
+                    if (JMENU.equals(JMENU_STRINGS[i][j][1])) {
+                        //create a new JMenu
+                        tempJMenuItem = new JMenu(JMENU_STRINGS[i][j][0]);
+                        
+                    } else { //if not a menu
+                        
+                        if (J_CHECKBOX_MENUITEM.equals(JMENU_STRINGS[i][j][1])) {
+                            //create a new JCheckBoxMenuItem
+                            tempJMenuItem = new JCheckBoxMenuItem(JMENU_STRINGS[i][j][0]);
+                        } else {
+                            //create a new JMenuItem
+                            tempJMenuItem = new JMenuItem(JMENU_STRINGS[i][j][0]);
+                        }
+                        
+                        //create action listeners
+                        tempJMenuItem.addActionListener(new ActionListener() {
+
+                            /**
+                             * Fires a property change with propertyName equal this option's
+                             * name (in all lower case).
+                             * @param theEvent that triggered this action.
+                             */
+                            @Override
+                            public void actionPerformed(final ActionEvent theEvent) {
+                                final String optionName = ((JMenuItem) theEvent.getSource()).
+                                                                getText().toLowerCase();
+                                firePropertyChange(optionName, true, false);
+                            }
+                        });
+                        
+                        //set accelerator if one is designated
+                        if (JMENU_STRINGS[i][j][INDEX_OF_ACCEL] != null) {
+                            ((JMenuItem) tempJMenuItem).
+                            setAccelerator(KeyStroke.
+                                           getKeyStroke(JMENU_STRINGS[i][j][INDEX_OF_ACCEL]));
+                        }
+
+                    } //end of else
+                       
+                    //add newly created JMenuItem to HashMap myMenuMap
+                    myMenuMap.put(JMENU_STRINGS[i][j][0], tempJMenuItem);
+                     
+                    //add newly created JMenuItem to current JMenu
+                    tempJMenu.add(tempJMenuItem);
+                    
+                    //cause menu dropdown being clicked to cause the game to pause
+                    tempJMenu.addMenuListener(new GamePauseMenuListener());
+                    
+                    //set mnemonic for MenuItem
+                    //the numerical value of the string stored in JMENU_STRINGS[i][j][1]
+                    //is used to get the letter from JMENU_STRINGS[i][j][0] that is used
+                    //as the mnemonic key
+                    //set mnemonic for JMenuItem
+                    configureMnemonic((AbstractButton) tempJMenuItem, JMENU_STRINGS[i][j][2]);
+                }
+                
+            } //end of inner for
+            
+            //add newly created drop down menu to this JMenuBar
+            add(tempJMenu);
+            
+            //set mnemonic for Menu
+            configureMnemonic((AbstractButton) tempJMenu, JMENU_STRINGS[i][0][2]);
+            
+            
+            
+        } //end of outer for
+        
+    } //end of createMenu
+    
+    /**
+     * This method takes in a MenuItem type object (as an AbstractButton),
+     * and set its mnemonic key to be the letter in theLabelName at index theIndex.
+     * 
+     * 
+     * @param theMenuItem JMemuItem that will have the mnemonic key set on it
+     * @param theIndex used to get letter from String theLabelName.
+     */
+    private void configureMnemonic(final AbstractButton theMenuItem, final String theIndex) {
+        
+        final char mnemonicLetter;
+        int letterIndex;
+        
+        //save the text on the button
+        final String buttonText = theMenuItem.getText();
+        
+        //convert String index to number
+        letterIndex = Character.getNumericValue(theIndex.charAt(0));
+        
+        //retrieve the char at position letterIndex
+        mnemonicLetter = Character.toLowerCase(buttonText.charAt(letterIndex));
+        
+        //convert char to int virtual key code
+        //code found at http://stackoverflow.com/questions/15260282/
+        //converting-a-char-into-java-keyevent-keycode
+        final int mnemonicKey = KeyEvent.getExtendedKeyCodeForChar(mnemonicLetter);
+        
+        
+        //set mnemonic key
+        theMenuItem.setMnemonic(mnemonicKey);
+        
+    } //end of configureMnemonic
+
+    /**
+     * This method creates JSliders for selecting number of blocks per row/column.
+     * 
+     * @param theBoardWidthInBlocks int default starting game board width in blocks
+     * @param theBoardHeightInBlocks int default starting game board height in blocks
+     */
+    private void createBlockRowColumnJSlider(final int theBoardWidthInBlocks, 
+                                             final int theBoardHeightInBlocks) {
+        
+        final Map<String, Integer> blockWidthHeightMap = new HashMap<>();
+        blockWidthHeightMap.put(BLOCK_ROWS, theBoardWidthInBlocks);
+        blockWidthHeightMap.put(BLOCK_COLUMNS, theBoardHeightInBlocks);
+        
+        for (final Map.Entry<String, Integer> nameToDefault 
+                                        : blockWidthHeightMap.entrySet()) {
+            final JSlider sizeInBlocksSlider = new JSlider(JSlider.HORIZONTAL, 
+                                                            BLOCK_ROW_COL_MIN, 
+                                                            BLOCK_ROW_COL_MAX, 
+                                                            nameToDefault.getValue());
+            
+            //set tick incrementation
+            sizeInBlocksSlider.setMajorTickSpacing(MAJOR_TICK_INTERVALS);
+            sizeInBlocksSlider.setMinorTickSpacing(MINOR_TICK_INTERVALS);
+            sizeInBlocksSlider.setPaintTicks(true);
+            sizeInBlocksSlider.setSnapToTicks(true);
+            sizeInBlocksSlider.setPaintLabels(true);
+            
+            
+            
+            //add change listener
+            sizeInBlocksSlider.addPropertyChangeListener(new PropertyChangeListener() {
+
+                
+                /**
+                 * This method sends the new number of blocks per row/column the TetrisGUI by
+                 * firing a propertyChange event.
+                 */
+                @Override
+                public void propertyChange(final PropertyChangeEvent theArgs) {
+                    firePropertyChange(nameToDefault.getKey().toLowerCase(), 
+                                       0, sizeInBlocksSlider.getValue());
+                    
+                }
+                
+            }); //end of PropertyChangeListener
+            
+            //add JSlider to Block Rows submenu
+            ((JMenu) myMenuMap.get(nameToDefault.getKey())).add(sizeInBlocksSlider);
+        } //end of for
+        
+
+    }
+    
+    /**
+     * This class causes the game to pause when the menu drop downs are clicked.
+     * 
+     * @author Ray Kim
+     * @version Autumn 2014
+     *
+     */
+    public class GamePauseMenuListener implements MenuListener {
+
+        /**
+         * This method is not used.
+         * @param theEvent which triggerd this  method
+         */
+        @Override
+        public void menuCanceled(final MenuEvent theEvent) {
+            //this method is not used
+        }
+        
+        /**
+         * This method is not used.
+         * @param theEvent which triggerd this  method
+         */
+        @Override
+        public void menuDeselected(final MenuEvent theEvent) {
+            //this method is not used
+            
+        }
+        
+        /**
+         * This method pauses the game when a menu is clicked.
+         * @param theEvent which triggerd this  method
+         */
+        @Override
+        public void menuSelected(final MenuEvent theEvent) {
+            firePropertyChange("pauseOnly", true, false);
+            
+        }
+    } //end of GamePauseMenuListener
+
+}

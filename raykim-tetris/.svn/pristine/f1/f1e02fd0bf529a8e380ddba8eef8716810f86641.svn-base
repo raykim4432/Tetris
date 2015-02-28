@@ -1,0 +1,40 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package view;
+
+import java.awt.EventQueue;
+
+/**
+ * The main method for the Tetris game which calls the TetrisGUI.
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ */
+public final class TetrisMain {
+
+    /**
+     * Private constructor, to prevent instantiation of this class.
+     */
+    private TetrisMain() {
+        throw new IllegalStateException();
+    }
+    
+    /**
+     * Main method that initiates TetrisGUI.
+     * 
+     * @param theArgs Command line arguments.
+     */
+    public static void main(final String[] theArgs) {
+        EventQueue.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                final TetrisGUI gui = new TetrisGUI();
+                gui.start();    
+            }
+        });
+    }
+    
+    
+}

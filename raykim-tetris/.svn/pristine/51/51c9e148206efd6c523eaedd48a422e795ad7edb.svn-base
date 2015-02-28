@@ -1,0 +1,228 @@
+/*
+ * TCSS 305: Assignment 6
+ */
+
+package video;
+
+
+import java.io.File;
+
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
+import javafx.stage.Stage;
+import javafx.util.Duration;
+
+
+
+/**
+ * This class creates a pop-up video advertisement that is skippable after
+ * 5 seconds.
+ * 
+ * Code for javafx media borrowed from:
+ * yotuube.com/watch?v=jaPUbzfJx2A
+ * 
+ * @author Ray Kim
+ * @version Autumn 2014
+ *
+ */
+public class AdvertVideo extends Application {
+
+    //constants
+    /**
+     * Default width of the advert window.
+     */
+    private static final int ADVERT_WINDOW_WIDTH = 600;
+    
+    /**
+     * Default height of the advert window.
+     */
+    private static final int ADVERT_WINDOW_HEIGHT = 360;
+    
+    /**
+     * Contains top and bottom padding for buttons.
+     */
+    private static final int VERTICAL_BUTTON_PADDING = 10;
+    
+    /**
+     * Time delay before video can be skipped.
+     */
+    private static final int SEC_BEFORE_VIDEO_SKIP = 20;
+    
+    /**
+     * Intervals at which timer fires off actionlistener events.
+     */
+    private static final int SEC_INCREMENTATION = 1;
+    
+    
+    /**
+     * Contains left and right padding for buttons.
+     */
+    private static final int HORIZONTAL_BUTTON_PADDING = 10;
+    
+    /**
+     * Constant for the string "Skip in...".
+     */
+    private static final String SKIP_IN = "Skip in...";
+    
+    //variable
+    /**
+     * Boolean, when set to true allows the skip button to cause this application to close.
+     */
+    private boolean myApplicationExitable;
+    
+    /**
+     * The number of seconds that have elapsed since the start of the video.
+     */
+    private int myElapsedAdvertSeconds;
+    
+    /**
+     * The skip button on the bottom right corner of this application.
+     */
+    private Button mySkipButton;
+    
+    
+    
+    /**
+     * This method starts video on call.
+     * Stage, Scene, MediaView, MediaPlayer, Media
+     * 
+     * Code for generating absolute path from relative path borrowed from:
+     * stackoverflow.com/questions/10519919/javafx-2-media-from-file-with-a-relative-path
+     * 
+     * Code for button action listeners borrowed from:
+     * docs.oracle.com/javafx/2/ui_controls/button.htm
+     * 
+     * Code for the timer borrowed from:
+     * stackoverflow.com/questions/9966136/javafx-periodic-background-task
+     * 
+     * @param theStage outer most layer of Media
+     * 
+     */
+    @Override
+    public void start(final Stage theStage) {
+        //pane which contains the video
+        final StackPane root = new StackPane();
+        
+        //create the most inner component in javaFX media
+        //first, get absolute path for video. toExternalForm() converts a relative path
+        //to an external path
+        final String uri = new File("videos/advert1.mp4").toURI().toString();
+        
+        final Media videoReference = new Media(uri);
+        
+        //create player
+        final MediaPlayer mediaPlayer = new MediaPlayer(videoReference);
+        
+        final MediaView viewWindow = new MediaView(mediaPlayer);
+        
+        //add video view to this object
+        root.getChildren().add(viewWindow);
+        
+        //set fixed dimensions for video view window
+        
+        
+        //set player to automatically start on window load
+        mediaPlayer.setAutoPlay(true);
+        
+        //create 2nd most outer layer component, the scene, and set display dimensions
+        final Scene scene = new Scene(root, ADVERT_WINDOW_WIDTH, ADVERT_WINDOW_HEIGHT);
+        theStage.setScene(scene);
+        
+        //configure appearance of window
+        theStage.setTitle("Advertisement");
+        theStage.show();
+        
+        //generate the skip video button
+        root.getChildren().add(createToolbar());
+        
+        //start time event for every second (delay before advert skip)
+        final Timeline advertTimeline = new Timeline(new KeyFrame(Duration.
+                                                                  seconds(SEC_INCREMENTATION), 
+                                                     new EventHandler<ActionEvent>() {
+                /**
+                 * Upon elapse of the delay time in myAdvertTimer, this method is called
+                 * to allow this application to be exitable by setting the boolean
+                 * myApplicationExitable to be true.
+                 * @param theEvent that called this method.                               
+                 */
+                @Override
+                public void handle(final ActionEvent theEvent) {
+                    myElapsedAdvertSeconds++;
+                    
+                    final int secondsLeft = SEC_BEFORE_VIDEO_SKIP - myElapsedAdvertSeconds;
+                    
+                    mySkipButton.setText(SKIP_IN + secondsLeft);
+                    if (myElapsedAdvertSeconds >= SEC_BEFORE_VIDEO_SKIP) {
+                        myApplicationExitable = true;
+                        mySkipButton.setText("Skip Advertisement");
+                    }                       
+                } //end of handle
+            })
+        ); 
+        //set number of cycles myAdvertTimeline will run
+        advertTimeline.setCycleCount(SEC_BEFORE_VIDEO_SKIP);
+        
+        advertTimeline.play();
+        
+    }
+    
+    /**
+     * This method creates a skip video button.
+     * 
+     * Code for closing platform borrowed from:
+     * stackoverflow.com/questions/12153622/how-to-close-a-javafx-application
+     * 
+     * @return HBox toolbar with skip button
+     */
+    private HBox createToolbar() {
+        
+        //create tool bar
+        final HBox skipBar = new HBox();
+        skipBar.setAlignment(Pos.BOTTOM_RIGHT);
+        skipBar.setPadding(new Insets(VERTICAL_BUTTON_PADDING, HORIZONTAL_BUTTON_PADDING, 
+                                      VERTICAL_BUTTON_PADDING, HORIZONTAL_BUTTON_PADDING));
+        
+        
+        //create skip button
+        mySkipButton = new Button(SKIP_IN);
+        
+        //add action listener to skip button
+        mySkipButton.setOnAction(new EventHandler<ActionEvent>() {
+
+            /**
+             * This button remains unactive until several seconds into the video. Then, it 
+             * causes the video application to close.
+             * @param theArgs of the action that called this method
+             */
+            @Override
+            public void handle(final ActionEvent theArgs) {
+                //if delay time has elapsed and myApplicationExitable set to true
+                if (myApplicationExitable) {
+                    
+                    //close application
+                    Platform.exit();
+                }
+            }
+            
+        });
+        
+        //add button to bar
+        skipBar.getChildren().add(mySkipButton);
+        
+        return skipBar;
+    } //end of createToolbar
+    
+}
